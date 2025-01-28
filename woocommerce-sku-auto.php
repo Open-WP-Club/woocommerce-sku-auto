@@ -48,6 +48,7 @@ class SKU_Generator
       'sku-generator'
     );
 
+    // Basic Settings
     add_settings_field(
       'prefix',
       __('SKU Prefix', 'sku-generator'),
@@ -60,6 +61,63 @@ class SKU_Generator
       'suffix',
       __('SKU Suffix', 'sku-generator'),
       array($this, 'suffix_field'),
+      'sku-generator',
+      'sku_generator_main'
+    );
+
+    // Pattern Settings
+    add_settings_field(
+      'pattern_type',
+      __('SKU Pattern Type', 'sku-generator'),
+      array($this, 'pattern_type_field'),
+      'sku-generator',
+      'sku_generator_main'
+    );
+
+    add_settings_field(
+      'pattern_length',
+      __('Pattern Length', 'sku-generator'),
+      array($this, 'pattern_length_field'),
+      'sku-generator',
+      'sku_generator_main'
+    );
+
+    add_settings_field(
+      'include_category',
+      __('Include Category', 'sku-generator'),
+      array($this, 'include_category_field'),
+      'sku-generator',
+      'sku_generator_main'
+    );
+
+    add_settings_field(
+      'category_chars',
+      __('Category Characters', 'sku-generator'),
+      array($this, 'category_chars_field'),
+      'sku-generator',
+      'sku_generator_main'
+    );
+
+    add_settings_field(
+      'include_date',
+      __('Include Date', 'sku-generator'),
+      array($this, 'include_date_field'),
+      'sku-generator',
+      'sku_generator_main'
+    );
+
+    add_settings_field(
+      'date_format',
+      __('Date Format', 'sku-generator'),
+      array($this, 'date_format_field'),
+      'sku-generator',
+      'sku_generator_main'
+    );
+
+    add_settings_field(
+      'separator',
+      __('Separator Character', 'sku-generator'),
+      array($this, 'separator_field'),
       'sku-generator',
       'sku_generator_main'
     );
@@ -77,11 +135,80 @@ class SKU_Generator
     $options = get_option('sku_generator_options');
     $suffix = isset($options['suffix']) ? $options['suffix'] : '';
     echo "<input type='text' name='sku_generator_options[suffix]' value='" . esc_attr($suffix) . "' />";
+    echo "<p class='description'>" . __('Add a suffix to the end of each SKU.', 'sku-generator') . "</p>";
+  }
+
+  public function pattern_type_field()
+  {
+    $options = get_option('sku_generator_options');
+    $pattern_type = isset($options['pattern_type']) ? $options['pattern_type'] : 'alphanumeric';
+?>
+    <select name="sku_generator_options[pattern_type]">
+      <option value="alphanumeric" <?php selected($pattern_type, 'alphanumeric'); ?>><?php _e('Alphanumeric (A-Z, 0-9)', 'sku-generator'); ?></option>
+      <option value="numeric" <?php selected($pattern_type, 'numeric'); ?>><?php _e('Numeric Only (0-9)', 'sku-generator'); ?></option>
+      <option value="alphabetic" <?php selected($pattern_type, 'alphabetic'); ?>><?php _e('Alphabetic Only (A-Z)', 'sku-generator'); ?></option>
+      <option value="custom" <?php selected($pattern_type, 'custom'); ?>><?php _e('Custom Pattern', 'sku-generator'); ?></option>
+    </select>
+  <?php
+  }
+
+  public function pattern_length_field()
+  {
+    $options = get_option('sku_generator_options');
+    $length = isset($options['pattern_length']) ? $options['pattern_length'] : '8';
+    echo "<input type='number' min='4' max='32' name='sku_generator_options[pattern_length]' value='" . esc_attr($length) . "' />";
+    echo "<p class='description'>" . __('Length of the random part of the SKU (4-32 characters)', 'sku-generator') . "</p>";
+  }
+
+  public function include_category_field()
+  {
+    $options = get_option('sku_generator_options');
+    $include_category = isset($options['include_category']) ? $options['include_category'] : '0';
+    echo "<input type='checkbox' name='sku_generator_options[include_category]' value='1' " . checked($include_category, '1', false) . "/>";
+    echo "<p class='description'>" . __('Include product category code in SKU', 'sku-generator') . "</p>";
+  }
+
+  public function category_chars_field()
+  {
+    $options = get_option('sku_generator_options');
+    $category_chars = isset($options['category_chars']) ? $options['category_chars'] : '2';
+    echo "<input type='number' min='1' max='5' name='sku_generator_options[category_chars]' value='" . esc_attr($category_chars) . "' />";
+    echo "<p class='description'>" . __('Number of characters to use from category name (1-5)', 'sku-generator') . "</p>";
+  }
+
+  public function include_date_field()
+  {
+    $options = get_option('sku_generator_options');
+    $include_date = isset($options['include_date']) ? $options['include_date'] : '0';
+    echo "<input type='checkbox' name='sku_generator_options[include_date]' value='1' " . checked($include_date, '1', false) . "/>";
+    echo "<p class='description'>" . __('Include date in SKU', 'sku-generator') . "</p>";
+  }
+
+  public function date_format_field()
+  {
+    $options = get_option('sku_generator_options');
+    $date_format = isset($options['date_format']) ? $options['date_format'] : 'Ymd';
+  ?>
+    <select name="sku_generator_options[date_format]">
+      <option value="Ymd" <?php selected($date_format, 'Ymd'); ?>><?php _e('YYYYMMDD', 'sku-generator'); ?></option>
+      <option value="ymd" <?php selected($date_format, 'ymd'); ?>><?php _e('YYMMDD', 'sku-generator'); ?></option>
+      <option value="ym" <?php selected($date_format, 'ym'); ?>><?php _e('YYMM', 'sku-generator'); ?></option>
+      <option value="y" <?php selected($date_format, 'y'); ?>><?php _e('YY', 'sku-generator'); ?></option>
+    </select>
+  <?php
+  }
+
+  public function separator_field()
+  {
+    $options = get_option('sku_generator_options');
+    $separator = isset($options['separator']) ? $options['separator'] : '-';
+    echo "<input type='text' maxlength='1' name='sku_generator_options[separator]' value='" . esc_attr($separator) . "' />";
+    echo "<p class='description'>" . __('Character to separate SKU parts (e.g., -)', 'sku-generator') . "</p>";
   }
 
   public function admin_page()
   {
-?>
+  ?>
     <div class="wrap">
       <h1><?php echo esc_html(__('SKU Generator', 'sku-generator')); ?></h1>
 
@@ -209,9 +336,65 @@ class SKU_Generator
 
   private function generate_unique_sku($prefix, $suffix)
   {
+    $options = get_option('sku_generator_options');
+    $pattern_type = isset($options['pattern_type']) ? $options['pattern_type'] : 'alphanumeric';
+    $length = isset($options['pattern_length']) ? intval($options['pattern_length']) : 8;
+    $separator = isset($options['separator']) ? $options['separator'] : '-';
+
+    // Build character set based on pattern type
+    switch ($pattern_type) {
+      case 'numeric':
+        $chars = '0123456789';
+        break;
+      case 'alphabetic':
+        $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        break;
+      case 'custom':
+        // You can add custom pattern logic here
+        $chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        break;
+      default: // alphanumeric
+        $chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    }
+
     do {
-      $random = substr(str_shuffle('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'), 0, 8);
-      $sku = $prefix . $random . $suffix;
+      $sku_parts = array();
+
+      // Add prefix if set
+      if (!empty($prefix)) {
+        $sku_parts[] = $prefix;
+      }
+
+      // Add category if enabled
+      if (!empty($options['include_category']) && $options['include_category'] == '1') {
+        global $product;
+        if ($product) {
+          $categories = get_the_terms($product->get_id(), 'product_cat');
+          if ($categories && !is_wp_error($categories)) {
+            $first_cat = reset($categories);
+            $cat_chars = isset($options['category_chars']) ? intval($options['category_chars']) : 2;
+            $sku_parts[] = strtoupper(substr($first_cat->slug, 0, $cat_chars));
+          }
+        }
+      }
+
+      // Add date if enabled
+      if (!empty($options['include_date']) && $options['include_date'] == '1') {
+        $date_format = isset($options['date_format']) ? $options['date_format'] : 'Ymd';
+        $sku_parts[] = date($date_format);
+      }
+
+      // Add random part
+      $random = substr(str_shuffle($chars), 0, $length);
+      $sku_parts[] = $random;
+
+      // Add suffix if set
+      if (!empty($suffix)) {
+        $sku_parts[] = $suffix;
+      }
+
+      // Combine all parts with separator
+      $sku = implode($separator, array_filter($sku_parts));
     } while ($this->sku_exists($sku));
 
     return $sku;
