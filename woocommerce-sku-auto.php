@@ -266,7 +266,7 @@ class SKU_Generator
 
     $offset = isset($_POST['offset']) ? intval($_POST['offset']) : 0;
 
-    // Get products without SKUs using WC_Product_Query
+    // Get products without SKUs or with empty SKUs
     $query = new \WC_Product_Query(array(
       'limit' => $this->batch_size,
       'offset' => $offset,
@@ -274,6 +274,7 @@ class SKU_Generator
       'order' => 'DESC',
       'status' => 'publish',
       'return' => 'objects',
+      'sku' => '',  // This gets both empty and non-existent SKUs
       'meta_query' => array(
         'relation' => 'OR',
         array(
@@ -292,6 +293,7 @@ class SKU_Generator
     $total_products = count(wc_get_products(array(
       'limit' => -1,
       'return' => 'ids',
+      'sku' => '',
       'meta_query' => array(
         'relation' => 'OR',
         array(
@@ -319,9 +321,13 @@ class SKU_Generator
     $suffix = isset($options['suffix']) ? $options['suffix'] : '';
 
     foreach ($products as $product) {
-      $sku = $this->generate_unique_sku($prefix, $suffix);
-      $product->set_sku($sku);
-      $product->save();
+      // Double check that the product doesn't already have a non-empty SKU
+      $current_sku = $product->get_sku();
+      if (empty($current_sku)) {
+        $sku = $this->generate_unique_sku($prefix, $suffix);
+        $product->set_sku($sku);
+        $product->save();
+      }
     }
 
     $progress = min(100, round(($offset + $this->batch_size) / $total_products * 100));
