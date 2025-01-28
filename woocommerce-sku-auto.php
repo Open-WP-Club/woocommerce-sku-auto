@@ -139,22 +139,45 @@ class SKU_Generator
 
     $offset = isset($_POST['offset']) ? intval($_POST['offset']) : 0;
 
-    // Get products without SKUs using HPOS if available
-    $data_store = \WC_Data_Store::load('product');
-    $products_query = array(
+    // Get products without SKUs using WC_Product_Query
+    $query = new \WC_Product_Query(array(
       'limit' => $this->batch_size,
       'offset' => $offset,
+      'orderby' => 'date',
+      'order' => 'DESC',
+      'status' => 'publish',
+      'return' => 'objects',
       'meta_query' => array(
+        'relation' => 'OR',
         array(
           'key' => '_sku',
           'value' => '',
+          'compare' => '='
+        ),
+        array(
+          'key' => '_sku',
           'compare' => 'NOT EXISTS'
         )
       )
-    );
+    ));
 
-    $products = $data_store->query($products_query);
-    $total_products = $data_store->get_total($products_query);
+    $products = $query->get_products();
+    $total_products = count(wc_get_products(array(
+      'limit' => -1,
+      'return' => 'ids',
+      'meta_query' => array(
+        'relation' => 'OR',
+        array(
+          'key' => '_sku',
+          'value' => '',
+          'compare' => '='
+        ),
+        array(
+          'key' => '_sku',
+          'compare' => 'NOT EXISTS'
+        )
+      )
+    )));
 
     if (empty($products)) {
       wp_send_json_success(array(
@@ -196,15 +219,7 @@ class SKU_Generator
 
   private function sku_exists($sku)
   {
-    global $wpdb;
-
-    // Use HPOS table if available
-    $product_table = \WC_Data_Store::load('product')->get_table_name();
-
-    return $wpdb->get_var($wpdb->prepare(
-      "SELECT COUNT(*) FROM {$product_table} WHERE sku = %s",
-      $sku
-    )) > 0;
+    return wc_get_product_id_by_sku($sku) !== 0;
   }
 }
 
