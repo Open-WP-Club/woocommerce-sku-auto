@@ -23,127 +23,6 @@ class SKU_Generator
     add_action('admin_init', array($this, 'register_settings'));
     add_action('admin_enqueue_scripts', array($this, 'enqueue_scripts'));
     add_action('wp_ajax_generate_bulk_skus', array($this, 'ajax_generate_bulk_skus'));
-    add_action('wp_ajax_get_products_without_sku', array($this, 'ajax_get_products_without_sku'));
-    add_action('wp_ajax_get_sku_preview', array($this, 'ajax_get_sku_preview'));
-  }
-
-  public function ajax_get_products_without_sku()
-  {
-    check_ajax_referer('sku_generator_nonce', 'nonce');
-
-    if (!current_user_can('manage_woocommerce')) {
-      wp_send_json_error('Insufficient permissions');
-      return;
-    }
-
-    $query = new \WC_Product_Query(array(
-      'limit' => -1,
-      'return' => 'ids',
-      'status' => 'publish',
-      'sku' => '',
-      'meta_query' => array(
-        'relation' => 'OR',
-        array(
-          'key' => '_sku',
-          'value' => '',
-          'compare' => '='
-        ),
-        array(
-          'key' => '_sku',
-          'compare' => 'NOT EXISTS'
-        )
-      )
-    ));
-
-    $products = $query->get_products();
-    $count = count($products);
-
-    wp_send_json_success(array(
-      'count' => $count,
-      'message' => sprintf(
-        _n(
-          '%d product found without SKU',
-          '%d products found without SKUs',
-          $count,
-          'sku-generator'
-        ),
-        $count
-      )
-    ));
-  }
-
-  public function ajax_get_sku_preview()
-  {
-    check_ajax_referer('sku_generator_nonce', 'nonce');
-
-    if (!current_user_can('manage_woocommerce')) {
-      wp_send_json_error('Insufficient permissions');
-      return;
-    }
-
-    $options = array(
-      'prefix' => isset($_POST['prefix']) ? sanitize_text_field($_POST['prefix']) : '',
-      'suffix' => isset($_POST['suffix']) ? sanitize_text_field($_POST['suffix']) : '',
-      'pattern_type' => isset($_POST['pattern_type']) ? sanitize_text_field($_POST['pattern_type']) : 'alphanumeric',
-      'pattern_length' => isset($_POST['pattern_length']) ? intval($_POST['pattern_length']) : 8,
-      'separator' => isset($_POST['separator']) ? sanitize_text_field($_POST['separator']) : '-',
-      'include_category' => isset($_POST['include_category']) ? '1' : '0',
-      'include_date' => isset($_POST['include_date']) ? '1' : '0',
-      'date_format' => isset($_POST['date_format']) ? sanitize_text_field($_POST['date_format']) : 'Ymd',
-      'include_product_id' => isset($_POST['include_product_id']) ? '1' : '0'
-    );
-
-    // Create a sample product for preview
-    $product = new \WC_Product();
-    $product->set_id(123); // Sample ID
-
-    // Set a sample category
-    wp_set_object_terms($product->get_id(), array('Electronics'), 'product_cat');
-
-    // Generate preview SKU
-    $sku = $this->generate_preview_sku($options, $product);
-
-    wp_send_json_success(array('preview' => $sku));
-  }
-
-  private function generate_preview_sku($options, $product)
-  {
-    $sku_parts = array();
-
-    if (!empty($options['prefix'])) {
-      $sku_parts[] = $options['prefix'];
-    }
-
-    if (!empty($options['include_category']) && $options['include_category'] == '1') {
-      $sku_parts[] = 'ELEC'; // Sample category code
-    }
-
-    if (!empty($options['include_date']) && $options['include_date'] == '1') {
-      $sku_parts[] = date($options['date_format']);
-    }
-
-    if (!empty($options['include_product_id']) && $options['include_product_id'] == '1') {
-      $sku_parts[] = '123'; // Sample product ID
-    } else {
-      // Generate random part based on pattern type
-      switch ($options['pattern_type']) {
-        case 'numeric':
-          $chars = '0123456789';
-          break;
-        case 'alphabetic':
-          $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-          break;
-        default:
-          $chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-      }
-      $sku_parts[] = substr(str_shuffle($chars), 0, $options['pattern_length']);
-    }
-
-    if (!empty($options['suffix'])) {
-      $sku_parts[] = $options['suffix'];
-    }
-
-    return implode($options['separator'], array_filter($sku_parts));
   }
 
   public function add_admin_menu()
@@ -353,34 +232,18 @@ class SKU_Generator
         <?php
         settings_fields('sku_generator_options');
         do_settings_sections('sku-generator');
+        submit_button();
         ?>
-
-        <div class="sku-preview-section" style="margin: 20px 0; padding: 15px; background: #fff; border: 1px solid #ccd0d4; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
-          <h3><?php _e('SKU Preview', 'sku-generator'); ?></h3>
-          <div id="sku-preview" style="font-family: monospace; font-size: 14px; padding: 10px; background: #f0f0f1; border: 1px solid #c3c4c7;">
-            <!-- Preview will be updated via JavaScript -->
-          </div>
-        </div>
-
-        <?php submit_button(); ?>
       </form>
 
-      <div class="sku-generator-bulk" style="margin-top: 30px; padding: 20px; background: #fff; border: 1px solid #ccd0d4; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
+      <div class="sku-generator-bulk">
         <h2><?php echo esc_html(__('Bulk Generate SKUs', 'sku-generator')); ?></h2>
         <p><?php echo esc_html(__('Generate SKUs for all products that don\'t have one.', 'sku-generator')); ?></p>
-
-        <div class="sku-count-section" style="margin-bottom: 15px;">
-          <button id="check-products" class="button" style="margin-right: 10px;">
-            <?php echo esc_html(__('Check Products Without SKU', 'sku-generator')); ?>
-          </button>
-          <span id="products-count" style="display: inline-block; padding: 5px 0;"></span>
-        </div>
-
         <button id="generate-skus" class="button button-primary">
           <?php echo esc_html(__('Generate SKUs', 'sku-generator')); ?>
         </button>
-        <div id="progress-bar" style="display: none; margin-top: 10px;">
-          <progress value="0" max="100" style="width: 100%;"></progress>
+        <div id="progress-bar" style="display: none;">
+          <progress value="0" max="100"></progress>
           <span id="progress-text">0%</span>
         </div>
       </div>
