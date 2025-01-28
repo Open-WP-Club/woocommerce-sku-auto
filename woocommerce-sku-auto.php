@@ -67,6 +67,14 @@ class SKU_Generator
 
     // Pattern Settings
     add_settings_field(
+      'include_product_id',
+      __('Include Product ID', 'sku-generator'),
+      array($this, 'include_product_id_field'),
+      'sku-generator',
+      'sku_generator_main'
+    );
+
+    add_settings_field(
       'pattern_type',
       __('SKU Pattern Type', 'sku-generator'),
       array($this, 'pattern_type_field'),
@@ -136,6 +144,14 @@ class SKU_Generator
     $suffix = isset($options['suffix']) ? $options['suffix'] : '';
     echo "<input type='text' name='sku_generator_options[suffix]' value='" . esc_attr($suffix) . "' />";
     echo "<p class='description'>" . __('Add a suffix to the end of each SKU.', 'sku-generator') . "</p>";
+  }
+
+  public function include_product_id_field()
+  {
+    $options = get_option('sku_generator_options');
+    $include_product_id = isset($options['include_product_id']) ? $options['include_product_id'] : '0';
+    echo "<input type='checkbox' name='sku_generator_options[include_product_id]' value='1' " . checked($include_product_id, '1', false) . "/>";
+    echo "<p class='description'>" . __('Include product ID in SKU', 'sku-generator') . "</p>";
   }
 
   public function pattern_type_field()
@@ -324,7 +340,7 @@ class SKU_Generator
       // Double check that the product doesn't already have a non-empty SKU
       $current_sku = $product->get_sku();
       if (empty($current_sku)) {
-        $sku = $this->generate_unique_sku($prefix, $suffix);
+        $sku = $this->generate_unique_sku($prefix, $suffix, $product);
         $product->set_sku($sku);
         $product->save();
       }
@@ -340,7 +356,7 @@ class SKU_Generator
     ));
   }
 
-  private function generate_unique_sku($prefix, $suffix)
+  private function generate_unique_sku($prefix, $suffix, $product = null)
   {
     $options = get_option('sku_generator_options');
     $pattern_type = isset($options['pattern_type']) ? $options['pattern_type'] : 'alphanumeric';
@@ -372,15 +388,12 @@ class SKU_Generator
       }
 
       // Add category if enabled
-      if (!empty($options['include_category']) && $options['include_category'] == '1') {
-        global $product;
-        if ($product) {
-          $categories = get_the_terms($product->get_id(), 'product_cat');
-          if ($categories && !is_wp_error($categories)) {
-            $first_cat = reset($categories);
-            $cat_chars = isset($options['category_chars']) ? intval($options['category_chars']) : 2;
-            $sku_parts[] = strtoupper(substr($first_cat->slug, 0, $cat_chars));
-          }
+      if (!empty($options['include_category']) && $options['include_category'] == '1' && $product) {
+        $categories = get_the_terms($product->get_id(), 'product_cat');
+        if ($categories && !is_wp_error($categories)) {
+          $first_cat = reset($categories);
+          $cat_chars = isset($options['category_chars']) ? intval($options['category_chars']) : 2;
+          $sku_parts[] = strtoupper(substr($first_cat->slug, 0, $cat_chars));
         }
       }
 
@@ -390,9 +403,16 @@ class SKU_Generator
         $sku_parts[] = date($date_format);
       }
 
-      // Add random part
-      $random = substr(str_shuffle($chars), 0, $length);
-      $sku_parts[] = $random;
+      // Add product ID if enabled
+      if (!empty($options['include_product_id']) && $options['include_product_id'] == '1' && $product) {
+        $sku_parts[] = $product->get_id();
+      }
+
+      // Add random part if product ID is not used or pattern type is not set to just use ID
+      if (empty($options['include_product_id']) || $options['include_product_id'] != '1') {
+        $random = substr(str_shuffle($chars), 0, $length);
+        $sku_parts[] = $random;
+      }
 
       // Add suffix if set
       if (!empty($suffix)) {
